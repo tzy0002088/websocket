@@ -8,7 +8,11 @@ function(add_test_framework TARGET)
     gtest_discover_tests(${TARGET})
     target_link_libraries(${TARGET} gtest_main)
     target_link_libraries(${TARGET} benchmark)
+    target_link_libraries(${TARGET} ws_test_common)
 endfunction()
+
+# 公共目录(tests/common), 不参与测试自动发现, 作为静态库被各测试用例链接
+add_subdirectory(common)
 
 macro(subdir_list result curdir)
   file(GLOB children RELATIVE ${curdir} ${curdir}/*)

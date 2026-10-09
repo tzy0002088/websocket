@@ -668,24 +668,35 @@ static int websocket_recv_and_check_hand_frame(struct websocket_session *session
 static int webscoket_tls_init(struct websocket_session *session)
 {
     const char *pers = "websocket";
-    int success = (
-        (session) &&
-        (session->tls_session = (MbedTLSSession *)ws_malloc(sizeof(MbedTLSSession))) &&
-        (((MbedTLSSession *)session->tls_session)->buffer = ws_malloc(WEBSOCKET_TLS_BUFFER_SIZE)) &&
-        (((MbedTLSSession *)session->tls_session)->buffer_len = WEBSOCKET_TLS_BUFFER_SIZE)
-    );
+    MbedTLSSession *tls = NULL;
 
-    if(success)
+    if (session == NULL)
     {
-        if (mbedtls_client_init(session->tls_session, (void *)pers, strlen(pers)) < 0)
-            success = -WEBSOCKET_ERROR;
-    }
-    else
-    {
-        success = -WEBSOCKET_NOMEM;
+        return -WEBSOCKET_ERROR;
     }
 
-    return success ? WEBSOCKET_OK : success;
+    tls = (MbedTLSSession *)ws_malloc(sizeof(MbedTLSSession));
+    if (tls == NULL)
+    {
+        return -WEBSOCKET_NOMEM;
+    }
+
+    ws_memset(tls, 0, sizeof(MbedTLSSession));
+    session->tls_session = tls;
+
+    tls->buffer = ws_malloc(WEBSOCKET_TLS_BUFFER_SIZE);
+    if (tls->buffer == NULL)
+    {
+        return -WEBSOCKET_NOMEM;
+    }
+    tls->buffer_len = WEBSOCKET_TLS_BUFFER_SIZE;
+
+    if (mbedtls_client_init(tls, (void *)pers, strlen(pers)) < 0)
+    {
+        return -WEBSOCKET_ERROR;
+    }
+
+    return WEBSOCKET_OK;
 }
 
 int websocket_get_block_info_raw(struct websocket_session *session)
@@ -818,6 +829,9 @@ int websocket_write_slice(struct websocket_session *session, const void *buf, si
     if ((opcode != WEBSOCKET_TEXT_FRAME) && (opcode != WEBSOCKET_BIN_FRAME))
         return -WEBSOCKET_WRITE_ERROR;
 
+    if (session->socket_fd < 0 || session->cache == NULL)
+        return -WEBSOCKET_ERROR;
+
     if (slice_type == WEBSOCKET_WRITE_FIRST_SLICE)
     {
         fin = 0;
@@ -840,6 +854,9 @@ int websocket_write(struct websocket_session *session, const void *buf, size_t l
 {
     if ((opcode != WEBSOCKET_TEXT_FRAME) && (opcode != WEBSOCKET_BIN_FRAME))
         return -WEBSOCKET_WRITE_ERROR;
+
+    if (session->socket_fd < 0 || session->cache == NULL)
+        return -WEBSOCKET_ERROR;
 
     return websocket_send_encode_package(session, buf, length, opcode, 1);
 }

@@ -3,26 +3,34 @@
 
 #include <stddef.h>
 
+/* 本地测试用自签名 CA(CN=127.0.0.1, 有效期 2026-10-07 ~ 2036-10-04),
+ * 由 openssl 生成, 证书文件见 sample/hello-server/wss_cert.pem, 私钥见 wss_key.pem.
+ * 仅用于本地 wss 测试, 请勿在生产环境使用.
+ * 重新生成: openssl req -x509 -newkey rsa:2048 -keyout wss_key.pem -out wss_cert.pem \
+ *   -days 3650 -nodes -subj "/CN=127.0.0.1" \
+ *   -addext "basicConstraints=critical,CA:TRUE" \
+ *   -addext "subjectAltName=IP:127.0.0.1,DNS:localhost"
+ */
 #define MBEDTLS_CERTIFICATE    \
 "-----BEGIN CERTIFICATE-----\r\n" \
-"MIIDCTCCAfGgAwIBAgIUdUzMXIb4qpThAjUGKeVLHEXsDnswDQYJKoZIhvcNAQEL\r\n" \
-"BQAwFDESMBAGA1UEAwwJMTI3LjAuMC4xMB4XDTE5MDkzMDAzNDMwMVoXDTIxMDky\r\n" \
-"OTAzNDMwMVowFDESMBAGA1UEAwwJMTI3LjAuMC4xMIIBIjANBgkqhkiG9w0BAQEF\r\n" \
-"AAOCAQ8AMIIBCgKCAQEAtrrD5aNW/Ffv3sYuQYxbGchFSEEK4V+6M1sLpKPOK3K7\r\n" \
-"TIXPgdrt1IraRInim3WedRGnZOxDQAsHJ1elZ7tZ4PmeoXEuOOMoziHyQfT4xMLu\r\n" \
-"5a0SL0yfhe/r/lM4YbdlIlM8dHQLjhGI3IEUIwBvctUSL3u6ZNiQhKzwHFlLBlJ9\r\n" \
-"g+VtawoYdYvEJetakBG+QdgodGT3FrXy6ZI7mORN0J6aU6QHBVkjehaPbeu5+pYn\r\n" \
-"O8ogQG6Rnp+Y+LeLg9DMLQ84gEGLoO89r9lKPFVsnqt3KQiGaEw5aV3vvJBmlwwO\r\n" \
-"xf/lyPRoaVoMkEAFZEQM+0YVVLaMi4mNuahTDPhV8QIDAQABo1MwUTAdBgNVHQ4E\r\n" \
-"FgQUiTsCNkdY8tNynnIMJUzaYbs/2p4wHwYDVR0jBBgwFoAUiTsCNkdY8tNynnIM\r\n" \
-"JUzaYbs/2p4wDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAa+jt\r\n" \
-"gPLzn5wETHlETu5unnR4LR3cdqa8qLLKU5RNZE3JroQnH12fS73PMrgh8Ds51Qmi\r\n" \
-"Q4d3VjzHbIew5EW3TyDFKLOXdXk1rPRlk5PWvIaJHIn7i6vxFe6YeOS0L2o25CBJ\r\n" \
-"Mthj3bSdssBM0CPZ6BQEhcn/qDcRE7IbggEkjyHd5hnJVCP/cQW1vhuIi2pef6nb\r\n" \
-"m38v6cGxrazDUnBOfZdwb2eqcCKgblDtsiMhZI0XfyAXiSwgl2MEMl8KTHl6TSVo\r\n" \
-"2CzYHgkQUlTbyILDRgSuOEnp9+6ifafeL2M4iGfBUcZuJfE67766bs3OMlrKkFOt\r\n" \
-"RKhxOu2pW45w0CkHOQ==\r\n" \
-"-----END CERTIFICATE-----\r\n" \
+"MIIDJTCCAg2gAwIBAgIUMrM7BX9lP0BjGRygKqgDKe4LYUwwDQYJKoZIhvcNAQEL\r\n" \
+"BQAwFDESMBAGA1UEAwwJMTI3LjAuMC4xMB4XDTI2MTAwNzE1MDgyM1oXDTM2MTAw\r\n" \
+"NDE1MDgyM1owFDESMBAGA1UEAwwJMTI3LjAuMC4xMIIBIjANBgkqhkiG9w0BAQEF\r\n" \
+"AAOCAQ8AMIIBCgKCAQEAtpmFuE1jfUL6Z0D+JU5w95TDyWA+jSLsJnu696a8+E1F\r\n" \
+"WS6/FMHKIK0MCrCNTkfoG4cxZvqWuRYCNaCCI8mTjD+jMhryDRgJpzu4oQTIleO/\r\n" \
+"9ss6vOIBLzICsfToUZ1IXS/KwsahmmuXdfWrl+pGdq5K/hW/RurWhK8YGevQN2Dt\r\n" \
+"GnCdpotYtlwz47tQ2Iehlym+qkCOdCixQF8KaXm7iy4PX5VnKreXE8XOim6Orm7j\r\n" \
+"+0HAtDLechYMyFytCWnwOKdpKCJfNuAdNwS8iGj3HNz3ce3t3PtpcNtxr6BF61MR\r\n" \
+"edy3XmqRGE4o1ma4ZkWEhmq5SliDe/KuFL6MVFKRzwIDAQABo28wbTAdBgNVHQ4E\r\n" \
+"FgQUBIPVL+T4lm8Uska+Sq8iqeB6kY0wHwYDVR0jBBgwFoAUBIPVL+T4lm8Uska+\r\n" \
+"Sq8iqeB6kY0wDwYDVR0TAQH/BAUwAwEB/zAaBgNVHREEEzARhwR/AAABgglsb2Nh\r\n" \
+"bGhvc3QwDQYJKoZIhvcNAQELBQADggEBAA7TaKdmIVyMBrbVPlg1E5yS7D3QnOE6\r\n" \
+"XLNgFq5QCUm0a6e8mJNJZ7iaMouKY5NdFAEc1vAfm70HqZD25a8s+wOKkzBMUr99\r\n" \
+"acxOX2x81h48kAuCAv1SSZl8VYwt0Ttk7HxNVue6BZa3HDIjReMhY3J8TDDFJCkf\r\n" \
+"HUd8Smb3+4fRBIttghKO/yfYujoMUw7qRMN+JTxJtAqu1GQG7YeCRV62esvaWdZX\r\n" \
+"eRDfGbNkZu2JVXKXx7YP+POzh/ozePFEMroaKVZwewg56FHsG3HLt4F5tZxjO+Qd\r\n" \
+"rzDGPAVP1zeSqL1ZIr6lWyoLAhJgVuCHT/fto/eanZivpycTjpk1SWQ=\r\n" \
+"-----END CERTIFICATE-----\r\n"
 
 
 extern const char mbedtls_certificate[];

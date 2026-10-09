@@ -14,6 +14,9 @@ set(ARCH "" CACHE STRING "Specify the target platform architecture")
 option(USING_ASAN "Enable AddressSanitizer" OFF)
 option(USING_COVERAGE "Enable code coverage" OFF)
 
+# Enable tests (ctest), can be disabled with -DBUILD_TESTING=OFF
+include(CTest)
+
 if(USING_ASAN)
 add_compile_options(-fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined)
 add_link_options(-fno-omit-frame-pointer -fsanitize=address -fsanitize=undefined)
@@ -31,4 +34,6 @@ add_subdirectory(sample)
 add_subdirectory(crypt)
 add_subdirectory(core)
 add_subdirectory(third_party)
-add_subdirectory(tests)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

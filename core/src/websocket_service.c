@@ -120,6 +120,17 @@ void app_websocket_exit_critical(struct websocket *session)
     pthread_mutex_unlock(&session->lock);
 }
 
+static int websocket_set_nonblocking(int fd)
+{
+#ifdef _WIN32
+    u_long on = 1;
+    return ioctlsocket(fd, FIONBIO, &on);
+#else
+    int on = 1;
+    return ioctl(fd, FIONBIO, &on);
+#endif
+}
+
 static void app_websocket_session_clean(struct websocket *app_ws_session)
 {
     ws_list_remove(&app_ws_session->node);
@@ -181,7 +192,10 @@ static int fsm_driver(struct websocket *app_ws_session)
 
         if (websocket_connect(&app_ws_session->session, app_ws_session->url, app_ws_session->subprotocol) == WEBSOCKET_OK)
         {
-            ioctl(app_ws_session->session.socket_fd, FIONBIO, 1);
+            if (websocket_set_nonblocking(app_ws_session->session.socket_fd) < 0)
+            {
+                ws_log("set socket nonblocking failed\n");
+            }
             err = app_websocket_enter_critical(app_ws_session);
             if (err == WEBSOCKET_OK)
             {

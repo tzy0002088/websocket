@@ -7,11 +7,13 @@
 
 #define CMDLINE_MAX     (200)
 static struct app_websocket ws;
+static volatile int is_connect = 0;
 static const char *fram_map[11] = {"continue", "text", "bin", "", "", "","", "", "close", "ping", "pong"};
 
 static void ctrl_c(int s)
 {
     printf("byby!!!\n");
+    app_websocket_set_close_reason(&ws, WEBSOCKET_STATUS_CLOSE_NORMAL, NULL);
     app_websocket_disconnect_server(&ws);
     sleep(1);
     app_websocket_worker_deinit();
@@ -39,29 +41,31 @@ static int onmessage(struct app_websocket *ws)
 static int onopen(struct app_websocket *ws)
 {
     printf("connect websocket server success!!!\n");
+    is_connect = 1;
     struct app_websocket_frame frame;
     frame.data = "hello server";
     frame.length = strlen("hello server");
     frame.type = WEBSOCKET_TEXT_FRAME;
 
-    return app_websocket_write_data(ws, &frame); 
+    return app_websocket_write_data(ws, &frame);
 }
 
 static int onclose(struct app_websocket *ws)
 {
     printf("server close session!!!\n");
+    is_connect = 0;
     return 0;
 }
 
 int main(int argc, char *argv[])
 {
     char cmdline[CMDLINE_MAX]= {0};
+    const char *url = (argc > 1) ? argv[1] : "ws://127.0.0.1:9010";
     signal(SIGINT, ctrl_c);
     app_websocket_worker_init();
     int success = (
         (app_websocket_init(&ws) == WEBSOCKET_OK) &&
-        (app_websocket_add_header(&ws, "Origin", "http://coolaf.com") == WEBSOCKET_OK) &&
-        (app_websocket_set_url(&ws, "ws://82.157.123.54:9010/ajaxchattest") == WEBSOCKET_OK) &&
+        (app_websocket_set_url(&ws, url) == WEBSOCKET_OK) &&
         (app_websocket_connect_server(&ws) == WEBSOCKET_OK)
     );
 
@@ -74,17 +78,19 @@ int main(int argc, char *argv[])
 
     while(success)
     {
-        fgets(cmdline,CMDLINE_MAX,stdin);
+        if (fgets(cmdline, CMDLINE_MAX, stdin) == NULL)
+        {
+            printf("stdin closed, exit!!!\n");
+            break;
+        }
+
         cmdline[strlen(cmdline)-1]='\0';
         printf("cmdline len = %ld\n", strlen(cmdline));
         if(strcmp(cmdline, "exit") == 0)
         {
-            app_websocket_disconnect_server(&ws);
-            sleep(1);
-            app_websocket_worker_deinit();
-            success = 0;
+            break;
         }
-        else
+        else if (is_connect)
         {
             struct app_websocket_frame frame;
             frame.data = cmdline;
@@ -93,15 +99,23 @@ int main(int argc, char *argv[])
             if (app_websocket_write_data(&ws, &frame) < 0)
             {
                 fprintf(stderr,"write error, please check connect!!!\n");
-                exit(1);
+                break;
             }
             else
             {
                 printf("write [%s] success!!!!\n", cmdline);
             }
         }
+        else
+        {
+            printf("websocket not connected, ignore input!!!\n");
+        }
     }
 
+    app_websocket_set_close_reason(&ws, WEBSOCKET_STATUS_CLOSE_NORMAL, NULL);
+    app_websocket_disconnect_server(&ws);
+    sleep(1);
+    app_websocket_worker_deinit();
     exit(0);
 }
 
